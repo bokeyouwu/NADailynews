@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>北美社交 Casino 日报生成器</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Serif+Display&family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #B8860B;
+  --gold-l: #D4A843;
+  --gold-d: #8B6508;
+  --gold-pale: rgba(184,134,11,0.08);
+  --ink: #1A1510;
+  --ink-mid: #3D3020;
+  --ink-soft: #6B5B45;
+  --ink-muted: #9C8C78;
+  --paper: #FAF6EF;
+  --cream: #F2EAD8;
+  --rule: rgba(184,134,11,0.15);
+  --bg: #0F0D0A;
+  --bg2: #1A1510;
+  --bg3: #231E16;
+  --border: rgba(184,134,11,0.2);
+  --text: #F2EAD8;
+  --text-soft: #9C8C78;
+  --green: #2D6A4F;
+  --green-l: #52B788;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(184,134,11,0.03) 39px,rgba(184,134,11,0.03) 40px);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── LAYOUT ── */
+.app { display: grid; grid-template-columns: 420px 1fr; min-height: 100vh; position: relative; z-index: 1; }
+.sidebar { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; height: 100vh; position: sticky; top: 0; }
+.preview-pane { background: var(--bg); overflow-y: auto; height: 100vh; }
+
+/* ── SIDEBAR HEADER ── */
+.sb-head {
+  padding: 20px 22px 16px;
+  border-bottom: 2px solid var(--gold);
+  background: var(--bg3);
+  position: sticky; top: 0; z-index: 10;
+}
+.sb-kicker { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+.sb-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--text); line-height: 1.2; }
+.sb-title em { color: var(--gold); font-style: normal; }
+.sb-sub { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text-soft); letter-spacing: .1em; margin-top: 3px; }
+
+/* ── FORM SECTIONS ── */
+.sb-body { padding: 0 0 80px; }
+.form-sec {
+  border-bottom: 1px solid var(--border);
+  padding: 16px 22px;
+}
+.form-sec:last-child { border-bottom: none; }
+.sec-label {
+  display: flex; align-items: center; gap: 8px;
+  font-family: 'Noto Serif SC', serif; font-size: 13px; font-weight: 700;
+  color: var(--text); margin-bottom: 12px; letter-spacing: .03em;
+}
+.sec-label .sec-num {
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  background: var(--gold); color: var(--ink);
+  padding: 1px 6px; border-radius: 2px;
+}
+.sec-label .sec-icon { opacity: .7; }
+
+/* ── FORM CONTROLS ── */
+label.fl {
+  display: block;
+  font-family: 'DM Mono', monospace; font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-soft);
+  margin-bottom: 4px; margin-top: 10px;
+}
+label.fl:first-child { margin-top: 0; }
+input[type=text], textarea, input[type=date] {
+  width: 100%;
+  background: rgba(184,134,11,0.05);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12.5px;
+  line-height: 1.6;
+  outline: none;
+  transition: border-color .2s;
+  resize: vertical;
+}
+input[type=text]:focus, textarea:focus, input[type=date]:focus {
+  border-color: var(--gold);
+  background: rgba(184,134,11,0.09);
+}
+input[type=date] { color-scheme: dark; cursor: pointer; }
+textarea { min-height: 72px; }
+textarea.short { min-height: 52px; }
+textarea.tall { min-height: 110px; }
+
+/* ── ITEM CARDS ── */
+.item-card {
+  background: rgba(184,134,11,0.04);
+  border: 1px solid rgba(184,134,11,0.12);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.item-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.item-card-head span {
+  font-family: 'DM Mono', monospace; font-size: 9px;
+  color: var(--gold); letter-spacing: .12em; text-transform: uppercase;
+}
+.item-mark { color: var(--gold); font-size: 14px; margin-right: 4px; }
+
+/* ── IMAGE UPLOAD ── */
+.img-upload {
+  border: 1.5px dashed rgba(184,134,11,0.3);
+  border-radius: 4px;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+  margin-top: 6px;
+}
+.img-upload:hover { border-color: var(--gold); background: rgba(184,134,11,0.06); }
+.img-upload input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.img-upload .up-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text-soft); letter-spacing: .1em; }
+.img-upload .up-preview { width: 100%; border-radius: 3px; max-height: 80px; object-fit: cover; display: none; margin-top: 4px; }
+.img-upload.has-img .up-label { display: none; }
+.img-upload.has-img .up-preview { display: block; }
+.img-upload.has-img input[type=file] { display: none; }
+/* Delete button */
+.img-del {
+  display: none;
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(193,68,14,0.85); color: #fff;
+  border: none; border-radius: 3px;
+  font-size: 10px; padding: 2px 7px;
+  cursor: pointer; z-index: 5;
+  font-family: 'DM Mono', monospace; letter-spacing: .04em;
+}
+.img-upload.has-img .img-del { display: block; }
+
+/* ── GENERATE BUTTON ── */
+.generate-wrap {
+  position: fixed; bottom: 0; left: 0; width: 420px;
+  padding: 14px 22px; background: var(--bg2);
+  border-top: 1px solid var(--border); z-index: 20;
+  display: flex; gap: 8px;
+}
+.btn-gen {
+  flex: 1;
+  background: var(--gold);
+  color: var(--ink);
+  border: none;
+  border-radius: 3px;
+  padding: 11px 18px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  cursor: pointer; font-weight: 500;
+  transition: background .2s, transform .1s;
+}
+.btn-gen:hover { background: var(--gold-l); transform: translateY(-1px); }
+.btn-gen:active { transform: scale(.98); }
+.btn-dl {
+  background: rgba(184,134,11,0.15);
+  color: var(--gold);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 11px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer;
+  transition: background .2s;
+  white-space: nowrap;
+}
+.btn-dl:hover { background: rgba(184,134,11,0.25); }
+
+/* ── PREVIEW PANE ── */
+.preview-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  position: sticky; top: 0; z-index: 5;
+}
+.ph-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--text-soft); }
+.ph-status { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .1em; color: var(--green-l); }
+.preview-iframe-wrap { width: 100%; height: calc(100vh - 45px); }
+.preview-iframe-wrap iframe { width: 100%; height: 100%; border: none; background: #FAF6EF; }
+.preview-placeholder {
+  height: calc(100vh - 45px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; color: var(--text-soft);
+  text-align: center; padding: 40px;
+}
+.pp-icon { font-size: 48px; opacity: .3; }
+.pp-text { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .12em; color: var(--text-soft); line-height: 1.8; }
+.pp-hint { font-size: 11px; color: rgba(184,134,11,0.5); font-family: 'DM Mono', monospace; letter-spacing: .08em; }
+
+.btn-publish {
+  background: rgba(26,107,154,0.2);
+  color: #3891C4;
+  border: 1px solid rgba(26,107,154,0.35);
+  border-radius: 3px;
+  padding: 11px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer;
+  transition: background .2s;
+  white-space: nowrap;
+}
+.btn-publish:hover { background: rgba(26,107,154,0.35); }
+.btn-publish:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Supabase config panel */
+.sb-config {
+  background: rgba(26,107,154,0.06);
+  border: 1px solid rgba(26,107,154,0.2);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 12px 22px 0;
+}
+.sb-config-title {
+  font-family: 'DM Mono', monospace; font-size: 9px;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: #3891C4; margin-bottom: 8px;
+}
+.sb-config input {
+  width: 100%;
+  background: rgba(26,107,154,0.08);
+  border: 1px solid rgba(26,107,154,0.2);
+  border-radius: 3px;
+  padding: 6px 9px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: .04em;
+  outline: none; margin-top: 4px;
+  transition: border-color .2s;
+}
+.sb-config input:focus { border-color: #3891C4; }
+.sb-config label { font-family: 'DM Mono', monospace; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-soft); display: block; margin-top: 8px; }
+.sb-config label:first-of-type { margin-top: 0; }
+  background: rgba(45,106,79,0.2);
+  color: var(--green-l);
+  border: 1px solid rgba(82,183,136,0.3);
+  border-radius: 3px;
+  padding: 11px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer;
+  transition: background .2s;
+  white-space: nowrap;
+}
+.btn-png:hover { background: rgba(45,106,79,0.38); }
+.btn-png:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(12px);
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); border-radius: 4px;
+  padding: 10px 18px; font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: .08em;
+  opacity: 0; transition: opacity .25s, transform .25s;
+  pointer-events: none; z-index: 999; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── HIDDEN RENDER SURFACE ── */
+#render-surface {
+  position: fixed;
+  left: -9999px; top: 0;
+  width: 1440px;
+  background: #FAF6EF;
+  pointer-events: none;
+  z-index: -1;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+  .app { grid-template-columns: 1fr; }
+  .sidebar { height: auto; position: static; }
+  .preview-pane { height: 80vh; }
+  .generate-wrap { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── LEFT: INPUT SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sb-head">
+      <div class="sb-kicker">Brief Generator · North America Social Casino</div>
+      <div class="sb-title">北美社交 <em>Casino</em> 日报生成器</div>
+      <div class="sb-sub">粘贴内容 + 上传图片 → 一键生成高级简报</div>
+    </div>
+
+    <!-- Supabase 配置（折叠） -->
+    <div class="sb-config">
+      <div class="sb-config-title">🔗 Supabase 配置（发布用）</div>
+      <label>Project URL</label>
+      <input type="text" id="sb-url" placeholder="https://xxxxxx.supabase.co" autocomplete="off" value="https://schauwgqscboljjupyry.supabase.co">
+      <label>Anon Key</label>
+      <input type="text" id="sb-key" placeholder="eyJhbGciOiJ..." autocomplete="off" value="sb_publishable_YvF7sCi4om8JAfcDk45C7w_DAqnY8ps">
+    </div>
+
+    <div class="sb-body">
+
+      <!-- META -->
+      <div class="form-sec">
+        <div class="sec-label"><span class="sec-num">META</span> 基本信息</div>
+        <label class="fl">报刊主标题</label>
+        <input type="text" id="f-title" value="北美日报" placeholder="北美日报">
+        <label class="fl">日期</label>
+        <input type="date" id="f-date" value="">
+        <label class="fl">今日导语（一句话判断，50字以内）</label>
+        <textarea class="short" id="f-lead" placeholder="例：BGaming 推新作碾压老虎机市场，Bally's 闪电出手收购 William Hill 母公司"></textarea>
+        <label class="fl">副标题摘要（各栏一句，可选）</label>
+        <textarea class="short" id="f-deck" placeholder="例：游戏侧高倍集群玩法加速迭代，行业整合动作加快；特朗普中途罢访…"></textarea>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(184,134,11,0.15);">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;">栏目名称（可自定义）</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <label class="fl" style="margin-top:0;">🎰 栏目一</label>
+              <input type="text" id="s1-name" value="北美游戏" placeholder="北美游戏">
+            </div>
+            <div>
+              <label class="fl" style="margin-top:0;">🗞 栏目二</label>
+              <input type="text" id="s2-name" value="北美时事" placeholder="北美时事">
+            </div>
+            <div>
+              <label class="fl" style="margin-top:0;">🍔 栏目三</label>
+              <input type="text" id="s3-name" value="北美美食" placeholder="北美美食">
+            </div>
+            <div>
+              <label class="fl" style="margin-top:0;">🌆 栏目四</label>
+              <input type="text" id="s4-name" value="北美文化" placeholder="北美文化">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 01 游戏 -->
+      <div class="form-sec">
+        <div class="sec-label"><span class="sec-num">01</span><span class="sec-icon">🎰</span> 北美游戏</div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◆</span> 条目 1</span></div>
+          <label class="fl">标题（品牌名 | 核心动作）</label>
+          <input type="text" id="g1-brand" placeholder="例：Multi Rush · BGaming | 5×5 集群消除上线">
+          <label class="fl">内容（事实 + 影响，60-100字）</label>
+          <textarea id="g1-body" placeholder="游戏详情、玩法机制、视觉风格、市场影响…"></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="g1-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="g1-src" placeholder="例：iGamingToday · 2026-06-08">
+          <label class="fl">配图（拖入或点击上传）</label>
+          <div class="img-upload" id="g1-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'g1-img','g1-imgwrap')">
+            <button class="img-del" onclick="clearImg('g1-img','g1-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 点击或拖入图片</div>
+            <img class="up-preview" id="g1-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◇</span> 条目 2</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="g2-brand" placeholder="例：Bally's Intralot | 2.431 亿英镑收购 evoke">
+          <label class="fl">内容</label>
+          <textarea id="g2-body" placeholder="收购背景、金额、涉及品牌、影响…"></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="g2-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="g2-src" placeholder="例：iGamingFuture · 2026-06-08">
+          <label class="fl">配图（可选）</label>
+          <div class="img-upload" id="g2-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'g2-img','g2-imgwrap')">
+            <button class="img-del" onclick="clearImg('g2-img','g2-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 点击或拖入图片（可选）</div>
+            <img class="up-preview" id="g2-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◈</span> 条目 3（可选）</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="g3-brand" placeholder="第三条游戏新闻（不填则跳过）">
+          <label class="fl">内容</label>
+          <textarea class="short" id="g3-body" placeholder=""></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="g3-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="g3-src" placeholder="">
+          <label class="fl">配图（可选）</label>
+          <div class="img-upload" id="g3-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'g3-img','g3-imgwrap')">
+            <button class="img-del" onclick="clearImg('g3-img','g3-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 点击或拖入图片（可选）</div>
+            <img class="up-preview" id="g3-img" src="" alt="">
+          </div>
+        </div>
+      </div>
+
+      <!-- 02 时事 -->
+      <div class="form-sec">
+        <div class="sec-label"><span class="sec-num">02</span><span class="sec-icon">🗞</span> 北美时事</div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◆</span> 条目 1</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="n1-brand" placeholder="例：特朗普 × NBC | Meet the Press 采访中途离场">
+          <label class="fl">内容</label>
+          <textarea id="n1-body" placeholder="新闻事件描述、背景、影响…"></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="n1-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="n1-src" placeholder="例：CNBC · 2026-06-07">
+          <label class="fl">配图（可选）</label>
+          <div class="img-upload" id="n1-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'n1-img','n1-imgwrap')">
+            <button class="img-del" onclick="clearImg('n1-img','n1-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 可选</div>
+            <img class="up-preview" id="n1-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◇</span> 条目 2</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="n2-brand" placeholder="例：伊朗 × 以色列 | 导弹互袭，停火协议再现裂痕">
+          <label class="fl">内容</label>
+          <textarea id="n2-body" placeholder=""></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="n2-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="n2-src" placeholder="">
+          <label class="fl">配图（可选）</label>
+          <div class="img-upload" id="n2-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'n2-img','n2-imgwrap')">
+            <button class="img-del" onclick="clearImg('n2-img','n2-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 可选</div>
+            <img class="up-preview" id="n2-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◈</span> 条目 3（可选）</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="n3-brand" placeholder="第三条时事（不填则跳过）">
+          <label class="fl">内容</label>
+          <textarea class="short" id="n3-body" placeholder=""></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="n3-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="n3-src" placeholder="">
+        </div>
+      </div>
+
+      <!-- 03 美食 -->
+      <div class="form-sec">
+        <div class="sec-label"><span class="sec-num">03</span><span class="sec-icon">🍔</span> 北美美食</div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◆</span> 条目 1</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="f1-brand" placeholder="例：Beef on Weck | 布法罗经典，与水牛城鸡翅齐名">
+          <label class="fl">内容</label>
+          <textarea id="f1-body" placeholder="食物描述、背景、文化意义…"></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="f1-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="f1-src" placeholder="">
+          <label class="fl">配图</label>
+          <div class="img-upload" id="f1-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'f1-img','f1-imgwrap')">
+            <button class="img-del" onclick="clearImg('f1-img','f1-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 点击或拖入图片</div>
+            <img class="up-preview" id="f1-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◇</span> 条目 2（可选）</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="f2-brand" placeholder="第二条美食（不填则跳过）">
+          <label class="fl">内容</label>
+          <textarea class="short" id="f2-body" placeholder=""></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="f2-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="f2-src" placeholder="">
+          <label class="fl">配图（可选）</label>
+          <div class="img-upload" id="f2-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'f2-img','f2-imgwrap')">
+            <button class="img-del" onclick="clearImg('f2-img','f2-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 可选</div>
+            <img class="up-preview" id="f2-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◈</span> 条目 3（可选）</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="f3-brand" placeholder="第三条美食（不填则跳过）">
+          <label class="fl">内容</label>
+          <textarea class="short" id="f3-body" placeholder=""></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="f3-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="f3-src" placeholder="">
+        </div>
+      </div>
+
+      <!-- 04 文化 -->
+      <div class="form-sec">
+        <div class="sec-label"><span class="sec-num">04</span><span class="sec-icon">🌆</span> 北美文化</div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◆</span> 条目 1</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="c1-brand" placeholder="例：Rose Bowl Flea Market | 帕萨迪纳月度古董市">
+          <label class="fl">内容</label>
+          <textarea id="c1-body" placeholder="文化事件、地点、意义…"></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="c1-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="c1-src" placeholder="">
+          <label class="fl">配图</label>
+          <div class="img-upload" id="c1-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'c1-img','c1-imgwrap')">
+            <button class="img-del" onclick="clearImg('c1-img','c1-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 点击或拖入图片</div>
+            <img class="up-preview" id="c1-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◇</span> 条目 2（可选）</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="c2-brand" placeholder="第二条文化（不填则跳过）">
+          <label class="fl">内容</label>
+          <textarea class="short" id="c2-body" placeholder=""></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="c2-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="c2-src" placeholder="">
+          <label class="fl">配图（可选）</label>
+          <div class="img-upload" id="c2-imgwrap">
+            <input type="file" accept="image/*" onchange="handleImg(this,'c2-img','c2-imgwrap')">
+            <button class="img-del" onclick="clearImg('c2-img','c2-imgwrap');event.stopPropagation()">✕ 删除</button>
+            <div class="up-label">📷 可选</div>
+            <img class="up-preview" id="c2-img" src="" alt="">
+          </div>
+        </div>
+
+        <div class="item-card">
+          <div class="item-card-head"><span><span class="item-mark">◈</span> 条目 3（可选）</span></div>
+          <label class="fl">标题</label>
+          <input type="text" id="c3-brand" placeholder="第三条文化（不填则跳过）">
+          <label class="fl">内容</label>
+          <textarea class="short" id="c3-body" placeholder=""></textarea>
+          <label class="fl">来源链接</label>
+          <input type="text" id="c3-url" placeholder="https://...">
+          <label class="fl">来源名称 + 日期</label>
+          <input type="text" id="c3-src" placeholder="">
+        </div>
+      </div>
+
+      <!-- INSIGHT -->
+      <div class="form-sec">
+        <div class="sec-label"><span class="sec-num">✦</span> 跨栏目洞察</div>
+        <label class="fl">今日洞察（150字以内，要有明确判断）</label>
+        <textarea class="tall" id="f-insight" placeholder="例：今天的四条主线呈现出一个共同底色：规则在重组，存量在整合。博彩行业里…"></textarea>
+      </div>
+
+    </div><!-- /sb-body -->
+
+    <!-- GENERATE BUTTONS -->
+    <div class="generate-wrap">
+      <button class="btn-gen" onclick="generateBrief()">⚡ 生成预览</button>
+      <button class="btn-dl" onclick="downloadBrief()">↓ HTML</button>
+      <button class="btn-png" onclick="exportPng()" id="btn-png">🖼 出图</button>
+      <button class="btn-publish" onclick="publishToSupabase()" id="btn-publish">🚀 发布</button>
+    </div>
+  </aside>
+
+  <!-- ── RIGHT: PREVIEW PANE ── -->
+  <div class="preview-pane">
+    <div class="preview-header">
+      <span class="ph-label">📄 简报预览</span>
+      <span class="ph-status" id="preview-status">等待生成…</span>
+    </div>
+    <div class="preview-iframe-wrap" id="preview-wrap">
+      <div class="preview-placeholder">
+        <div class="pp-icon">📰</div>
+        <div class="pp-text">填写左侧表单后<br>点击「生成简报预览」<br>简报将即时显示在这里</div>
+        <div class="pp-hint">↑ 填写完成后点击左下角按钮</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Hidden render surface for PNG export -->
+<div id="render-surface"></div>
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Image handling ──
+const imgData = {};
+
+function handleImg(input, imgId, wrapId) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const uri = e.target.result;
+    imgData[imgId] = uri;
+    document.getElementById(imgId).src = uri;
+    document.getElementById(wrapId).classList.add('has-img');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImg(imgId, wrapId) {
+  delete imgData[imgId];
+  const img = document.getElementById(imgId);
+  if (img) { img.src = ''; }
+  const wrap = document.getElementById(wrapId);
+  if (wrap) {
+    wrap.classList.remove('has-img');
+    // Reset the file input so same file can be re-selected
+    const input = wrap.querySelector('input[type=file]');
+    if (input) input.value = '';
+  }
+}
+
+// ── Helpers ──
+function v(id) { return (document.getElementById(id)||{}).value||''; }
+function e(str) { return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function getWeekday(dateStr) {
+  if (!dateStr) return {zh:'', en:''};
+  const d = new Date(dateStr + 'T12:00:00');
+  const zh = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][d.getDay()];
+  const en = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+  return {zh, en};
+}
+
+function getPrimaryColor(dateStr) {
+  if (!dateStr) return {c:'#B8860B', cl:'#D4A843'};
+  const d = new Date(dateStr + 'T12:00:00');
+  const palette = [
+    {c:'#9B4D96', cl:'#C178BC'}, // Sun
+    {c:'#B8860B', cl:'#D4A843'}, // Mon
+    {c:'#C1440E', cl:'#E06840'}, // Tue
+    {c:'#4A7C59', cl:'#72A882'}, // Wed
+    {c:'#7B5EA7', cl:'#9E82C8'}, // Thu
+    {c:'#1A6B9A', cl:'#3891C4'}, // Fri
+    {c:'#9B4D96', cl:'#C178BC'}, // Sat
+  ];
+  return palette[d.getDay()];
+}
+
+function splitTitle(raw) {
+  if (!raw) return {brand:'', action:''};
+  const parts = raw.split('|');
+  return { brand: (parts[0]||'').trim(), action: (parts[1]||'').trim() };
+}
+
+function renderItem(mark, brandRaw, body, url, src, imgId) {
+  if (!brandRaw && !body) return '';
+  const {brand, action} = splitTitle(brandRaw);
+  const imgSrc = imgData[imgId] || '';
+  const imgHtml = imgSrc ? `<img src="${imgSrc}" alt="${e(brand)}" class="item-img" loading="lazy">` : '';
+  const urlPart = url ? `<a href="${e(url)}" target="_blank">→ ${e(url.replace(/^https?:\/\//,'').split('/')[0])}</a>` : '';
+  const srcDate = src ? `<span class="item-src-date">${e(src)}</span>` : '';
+  const srcHtml = (urlPart||srcDate) ? `<div class="item-src">${urlPart}${srcDate}</div>` : '';
+
+  return `<div class="item">
+  <span class="item-mark">${mark}</span>
+  <div class="item-body">
+    <div class="item-brand-line">
+      ${brand ? `<span class="item-brand">${e(brand)}</span>` : ''}
+      ${action ? `<span class="item-div">|</span><span class="item-action">${e(action)}</span>` : ''}
+    </div>
+    ${imgHtml}
+    ${body ? `<p class="item-text">${e(body).replace(/\n/g,'<br>')}</p>` : ''}
+    ${srcHtml}
+  </div>
+</div>`;
+}
+
+function renderSection(num, icon, title, sub, items) {
+  const hasAny = items.some(i => i.brand || i.body);
+  if (!hasAny) return `<div class="sec">
+    <div class="sec-head">
+      <span class="sec-num">${num}</span>
+      <div class="sec-meta"><span class="sec-title">${title}</span><span class="sec-sub">${sub}</span></div>
+      <span class="sec-icon">${icon}</span>
+    </div>
+    <div class="empty-sec">暂无内容</div>
+  </div>`;
+
+  const marks = ['◆','◇','◈'];
+  const rows = items.map((it, i) => renderItem(marks[i]||'◈', it.brand, it.body, it.url, it.src, it.imgId)).join('');
+  return `<div class="sec">
+    <div class="sec-head">
+      <span class="sec-num">${num}</span>
+      <div class="sec-meta"><span class="sec-title">${title}</span><span class="sec-sub">${sub}</span></div>
+      <span class="sec-icon">${icon}</span>
+    </div>
+    ${rows}
+  </div>`;
+}
+
+// ── Main generator ──
+let lastHtml = '';
+let lastMobileHtml = '';
+
+function buildHtml() {
+  const dateStr = v('f-date') || new Date().toISOString().split('T')[0];
+  const {zh: wdZh, en: wdEn} = getWeekday(dateStr);
+  const {c: primary, cl: primaryLight} = getPrimaryColor(dateStr);
+
+  const mmdd = dateStr.slice(5).replace('-','/');
+  const mainTitle = v('f-title') || '北美日报';
+  const lead = v('f-lead') || mainTitle;
+  const deck = v('f-deck') || '';
+  const insight = v('f-insight') || '';
+
+  const s1 = v('s1-name') || '北美游戏';
+  const s2 = v('s2-name') || '北美时事';
+  const s3 = v('s3-name') || '北美美食';
+  const s4 = v('s4-name') || '北美文化';
+
+  const gameSec = renderSection('01','🎰', s1,'博彩内容商 · 新游上线 · 玩法 · 视觉 · 活动机制', [
+    {brand:v('g1-brand'),body:v('g1-body'),url:v('g1-url'),src:v('g1-src'),imgId:'g1-img'},
+    {brand:v('g2-brand'),body:v('g2-body'),url:v('g2-url'),src:v('g2-src'),imgId:'g2-img'},
+    {brand:v('g3-brand'),body:v('g3-body'),url:v('g3-url'),src:v('g3-src'),imgId:'g3-img'},
+  ]);
+  const newsSec = renderSection('02','🗞', s2,'美国时事 · 特朗普 · 国际大事 · 科技', [
+    {brand:v('n1-brand'),body:v('n1-body'),url:v('n1-url'),src:v('n1-src'),imgId:'n1-img'},
+    {brand:v('n2-brand'),body:v('n2-body'),url:v('n2-url'),src:v('n2-src'),imgId:'n2-img'},
+    {brand:v('n3-brand'),body:v('n3-body'),url:v('n3-url'),src:v('n3-src'),imgId:'n3-img'},
+  ]);
+  const foodSec = renderSection('03','🍔', s3,'北美餐饮趋势 · 地方美食 · 食物文化', [
+    {brand:v('f1-brand'),body:v('f1-body'),url:v('f1-url'),src:v('f1-src'),imgId:'f1-img'},
+    {brand:v('f2-brand'),body:v('f2-body'),url:v('f2-url'),src:v('f2-src'),imgId:'f2-img'},
+    {brand:v('f3-brand'),body:v('f3-body'),url:v('f3-url'),src:v('f3-src'),imgId:'f3-img'},
+  ]);
+  const cultSec = renderSection('04','🌆', s4,'人文 · 建筑 · 城市 · 节日 · 生活方式', [
+    {brand:v('c1-brand'),body:v('c1-body'),url:v('c1-url'),src:v('c1-src'),imgId:'c1-img'},
+    {brand:v('c2-brand'),body:v('c2-body'),url:v('c2-url'),src:v('c2-src'),imgId:'c2-img'},
+    {brand:v('c3-brand'),body:v('c3-body'),url:v('c3-url'),src:v('c3-src'),imgId:'c3-img'},
+  ]);
+
+  const insightHtml = insight ? `<div class="insight">
+  <div class="ins-label">Today's Insight</div>
+  <div>
+    <div class="ins-kicker">跨栏目洞察 · Cross-Column Signal</div>
+    <p class="ins-text">${e(insight).replace(/\n/g,'<br>')}</p>
+  </div>
+</div>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${e(mainTitle)} | ${mmdd} · ${wdZh}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Serif+Display&family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--primary:${primary};--primary-light:${primaryLight};--primary-dark:${primary}cc;--ink:#1A1510;--ink-mid:#3D3020;--ink-soft:#6B5B45;--ink-muted:#9C8C78;--paper:#FAF6EF;--paper-warm:#F2EAD8;--rule:rgba(184,134,11,0.14);--rule-strong:rgba(184,134,11,0.32);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:'Noto Sans SC',sans-serif;min-height:100vh;position:relative}
+body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(184,134,11,0.025) 27px,rgba(184,134,11,0.025) 28px),repeating-linear-gradient(90deg,transparent,transparent 27px,rgba(184,134,11,0.015) 27px,rgba(184,134,11,0.015) 28px);pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1360px;margin:0 auto;padding:0 28px}
+.masthead{border-bottom:3px double var(--primary);padding:18px 0 14px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.mh-left{display:flex;flex-direction:column;gap:2px}
+.mh-kicker{font-family:'DM Mono',monospace;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-muted)}
+.mh-date{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--primary);line-height:1;letter-spacing:-.02em}
+.mh-day{font-family:'DM Mono',monospace;font-size:9px;color:var(--ink-soft);letter-spacing:.15em;text-transform:uppercase}
+.mh-center{text-align:center}
+.mh-title{font-family:'DM Serif Display',serif;font-size:clamp(18px,3vw,34px);color:var(--ink);line-height:1.15;letter-spacing:-.01em;white-space:nowrap}
+.mh-title em{color:var(--primary);font-style:normal}
+.mh-sub{font-family:'DM Mono',monospace;font-size:8.5px;color:var(--ink-muted);letter-spacing:.16em;text-transform:uppercase;margin-top:3px}
+.mh-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.hero{padding:26px 0 18px;border-bottom:1px solid var(--rule);display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start;opacity:0;animation:fadeUp .45s .05s ease forwards}
+.hero-bar{writing-mode:vertical-rl;font-family:'DM Mono',monospace;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--primary);border-left:2px solid var(--primary);padding-left:7px;height:64px;display:flex;align-items:center}
+.hero-inner{display:flex;flex-direction:column;gap:5px}
+.hero-kicker{font-family:'DM Mono',monospace;font-size:9.5px;color:var(--primary);letter-spacing:.14em;text-transform:uppercase}
+.hero-hed{font-family:'Noto Serif SC',serif;font-size:clamp(20px,3vw,36px);font-weight:700;color:var(--ink);line-height:1.3;letter-spacing:-.02em}
+.hero-deck{font-size:13.5px;color:var(--ink-soft);line-height:1.75;font-weight:300;max-width:800px;margin-top:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.sections{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0 -28px;padding:0 28px}
+.sec{padding:22px 18px 26px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);position:relative;opacity:0;animation:fadeUp .45s ease forwards}
+.sec:nth-child(1){animation-delay:.08s}.sec:nth-child(2){animation-delay:.13s;border-right:none}.sec:nth-child(3){animation-delay:.18s;border-bottom:none}.sec:nth-child(4){animation-delay:.23s;border-right:none;border-bottom:none}
+.sec-head{display:flex;align-items:baseline;gap:9px;margin-bottom:16px;padding-bottom:9px;border-bottom:2px solid var(--primary)}
+.sec-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:rgba(184,134,11,0.15);line-height:1;letter-spacing:-.03em;position:relative;top:1px}
+.sec-meta{display:flex;flex-direction:column;gap:1px}
+.sec-title{font-family:'Noto Serif SC',serif;font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:.04em}
+.sec-sub{font-family:'DM Mono',monospace;font-size:8.5px;color:var(--ink-muted);letter-spacing:.1em}
+.sec-icon{margin-left:auto;font-size:19px;opacity:.55}
+.item{padding:11px 0;border-bottom:1px dashed rgba(184,134,11,0.12);display:grid;grid-template-columns:18px 1fr;gap:9px;align-items:start}
+.item:last-child{border-bottom:none;padding-bottom:0}
+.item-mark{font-family:'DM Mono',monospace;font-size:13px;color:var(--primary-light);line-height:1.5;font-weight:500}
+.item-body{display:flex;flex-direction:column;gap:3px}
+.item-brand-line{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap}
+.item-brand{font-family:'Noto Serif SC',serif;font-size:12.5px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.item-div{font-size:10px;color:var(--primary-light);opacity:.7}
+.item-action{font-family:'Noto Serif SC',serif;font-size:11.5px;font-weight:600;color:var(--primary-dark);letter-spacing:.01em}
+.item-text{font-size:12px;color:var(--ink-mid);line-height:1.8;font-weight:300}
+.item-img{width:100%;border-radius:4px;margin:6px 0 3px;display:block;object-fit:cover;border:1px solid var(--rule);max-height:200px}
+.item-src{display:flex;align-items:center;gap:5px;margin-top:1px}
+.item-src a{font-family:'DM Mono',monospace;font-size:9px;color:var(--primary);text-decoration:none;border-bottom:1px solid var(--rule-strong);padding-bottom:1px;letter-spacing:.04em}
+.item-src-date{font-family:'DM Mono',monospace;font-size:8.5px;color:var(--ink-muted)}
+.empty-sec{font-family:'DM Mono',monospace;font-size:9px;color:var(--ink-muted);letter-spacing:.1em;padding:12px 0}
+.insight{margin:0 -28px;padding:22px 56px;background:var(--ink);border-top:3px solid var(--primary);display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start}
+.ins-label{font-family:'DM Mono',monospace;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:${primaryLight};writing-mode:vertical-rl;padding-right:10px;border-right:1px solid ${primary}66}
+.ins-kicker{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:${primary};margin-bottom:8px}
+.ins-text{font-family:'Noto Serif SC',serif;font-size:15px;font-weight:600;color:#F2EAD8;line-height:1.9;letter-spacing:.01em}
+.footer{padding:15px 0;border-top:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center}
+.footer-brand{font-family:'DM Mono',monospace;font-size:10px;color:var(--ink-muted);letter-spacing:.1em;text-transform:uppercase}
+.footer-brand strong{color:var(--primary);font-weight:500}
+.footer-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--ink-muted);letter-spacing:.08em}
+@media(max-width:768px){.sections{grid-template-columns:1fr}.sec:nth-child(2){border-right:none;border-bottom:1px solid var(--rule)}.sec:nth-child(3){border-bottom:1px solid var(--rule)}.masthead{grid-template-columns:1fr;text-align:center}.mh-right{align-items:center}.hero{grid-template-columns:1fr}.hero-bar{writing-mode:horizontal-tb;height:auto;border-left:none;border-bottom:2px solid var(--primary);padding:0 0 5px}.insight{padding:20px 20px;grid-template-columns:1fr}.ins-label{writing-mode:horizontal-tb;padding-right:0;border-right:none;border-bottom:1px solid ${primary}66;padding-bottom:6px;margin-bottom:6px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="mh-left">
+    <span class="mh-kicker">North America Daily</span>
+    <span class="mh-date">${mmdd}</span>
+    <span class="mh-day">${wdEn} · ${wdZh}</span>
+  </div>
+  <div class="mh-center">
+    <h1 class="mh-title">${e(mainTitle)}</h1>
+    <div class="mh-sub">${e(s1)} &nbsp;·&nbsp; ${e(s2)} &nbsp;·&nbsp; ${e(s3)} &nbsp;·&nbsp; ${e(s4)}</div>
+  </div>
+  <div class="mh-right"></div>
+</header>
+<div class="hero">
+  <div class="hero-bar">TODAY'S SIGNAL</div>
+  <div class="hero-inner">
+    <div class="hero-kicker">今日导语 · ${dateStr}</div>
+    <h2 class="hero-hed">${e(lead)}</h2>
+    ${deck ? `<p class="hero-deck">${e(deck).replace(/\n/g,'<br>')}</p>` : ''}
+  </div>
+</div>
+<div class="sections">
+${gameSec}
+${newsSec}
+${foodSec}
+${cultSec}
+</div>
+${insightHtml}
+<footer class="footer">
+  <div class="footer-brand"><strong>${e(mainTitle)}</strong> &nbsp;·&nbsp; ${e(s1)} · ${e(s2)} · ${e(s3)} · ${e(s4)}</div>
+  <div class="footer-meta">${dateStr} · ${wdZh}</div>
+</footer>
+</div>
+</body>
+</html>`;
+}
+
+// ── Mobile long-image HTML (750px wide, large fonts, single column) ──
+function buildMobileHtml() {
+  const dateStr = v('f-date') || new Date().toISOString().split('T')[0];
+  const {zh: wdZh, en: wdEn} = getWeekday(dateStr);
+  const {c: primary, cl: primaryLight} = getPrimaryColor(dateStr);
+  const mmdd = dateStr.slice(5).replace('-','/');
+  const mainTitle = v('f-title') || '北美日报';
+  const lead = v('f-lead') || mainTitle;
+  const deck = v('f-deck') || '';
+  const insight = v('f-insight') || '';
+  const s1 = v('s1-name') || '北美游戏';
+  const s2 = v('s2-name') || '北美时事';
+  const s3 = v('s3-name') || '北美美食';
+  const s4 = v('s4-name') || '北美文化';
+
+  // Collect all sections' items
+  const allSections = [
+    { num:'01', icon:'🎰', title: s1, items:[
+      {brand:v('g1-brand'),body:v('g1-body'),url:v('g1-url'),src:v('g1-src'),imgId:'g1-img'},
+      {brand:v('g2-brand'),body:v('g2-body'),url:v('g2-url'),src:v('g2-src'),imgId:'g2-img'},
+      {brand:v('g3-brand'),body:v('g3-body'),url:v('g3-url'),src:v('g3-src'),imgId:'g3-img'},
+    ]},
+    { num:'02', icon:'🗞', title: s2, items:[
+      {brand:v('n1-brand'),body:v('n1-body'),url:v('n1-url'),src:v('n1-src'),imgId:'n1-img'},
+      {brand:v('n2-brand'),body:v('n2-body'),url:v('n2-url'),src:v('n2-src'),imgId:'n2-img'},
+      {brand:v('n3-brand'),body:v('n3-body'),url:v('n3-url'),src:v('n3-src'),imgId:'n3-img'},
+    ]},
+    { num:'03', icon:'🍔', title: s3, items:[
+      {brand:v('f1-brand'),body:v('f1-body'),url:v('f1-url'),src:v('f1-src'),imgId:'f1-img'},
+      {brand:v('f2-brand'),body:v('f2-body'),url:v('f2-url'),src:v('f2-src'),imgId:'f2-img'},
+      {brand:v('f3-brand'),body:v('f3-body'),url:v('f3-url'),src:v('f3-src'),imgId:'f3-img'},
+    ]},
+    { num:'04', icon:'🌆', title: s4, items:[
+      {brand:v('c1-brand'),body:v('c1-body'),url:v('c1-url'),src:v('c1-src'),imgId:'c1-img'},
+      {brand:v('c2-brand'),body:v('c2-body'),url:v('c2-url'),src:v('c2-src'),imgId:'c2-img'},
+      {brand:v('c3-brand'),body:v('c3-body'),url:v('c3-url'),src:v('c3-src'),imgId:'c3-img'},
+    ]},
+  ];
+
+  const marks = ['◆','◇','◈'];
+
+  const sectionsHtml = allSections.map(sec => {
+    const activeItems = sec.items.filter(it => it.brand || it.body);
+    if (!activeItems.length) return '';
+
+    const itemsHtml = activeItems.map((it, i) => {
+      const {brand, action} = splitTitle(it.brand);
+      const imgSrc = imgData[it.imgId] || '';
+      const imgHtml = imgSrc
+        ? `<img src="${imgSrc}" style="width:100%;border-radius:8px;margin:10px 0 6px;display:block;object-fit:cover;max-height:340px;border:1px solid rgba(184,134,11,0.12);" alt="">`
+        : '';
+      const srcLine = (it.url || it.src)
+        ? `<div style="font-family:'DM Mono',monospace;font-size:13px;color:${primary};letter-spacing:.04em;margin-top:4px;">${it.src || it.url}</div>`
+        : '';
+      return `<div style="padding:16px 0;border-bottom:1px dashed rgba(184,134,11,0.18);">
+  <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+    <span style="font-family:'DM Mono',monospace;font-size:15px;color:${primaryLight};font-weight:500;">${marks[i]||'◈'}</span>
+    ${brand ? `<span style="font-family:'Noto Serif SC',serif;font-size:17px;font-weight:700;color:#1A1510;letter-spacing:.02em;">${e(brand)}</span>` : ''}
+    ${action ? `<span style="font-size:13px;color:${primary};opacity:.7;">|</span><span style="font-family:'Noto Serif SC',serif;font-size:15px;font-weight:600;color:${primary};">${e(action)}</span>` : ''}
+  </div>
+  ${imgHtml}
+  ${it.body ? `<p style="font-size:16px;color:#3D3020;line-height:1.85;font-weight:300;margin-top:6px;">${e(it.body).replace(/\n/g,'<br>')}</p>` : ''}
+  ${srcLine}
+</div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:4px;">
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 0 10px;border-bottom:3px solid ${primary};margin-bottom:4px;">
+    <span style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:rgba(184,134,11,0.14);line-height:1;">${sec.num}</span>
+    <span style="font-size:22px;opacity:.7;">${sec.icon}</span>
+    <span style="font-family:'Noto Serif SC',serif;font-size:20px;font-weight:700;color:#1A1510;letter-spacing:.04em;">${e(sec.title)}</span>
+  </div>
+  ${itemsHtml}
+  <div style="height:24px;"></div>
+</div>`;
+  }).join('');
+
+  const insightBlock = insight ? `
+<div style="background:#1A1510;padding:28px 28px;margin:8px 0;">
+  <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:${primaryLight};margin-bottom:10px;">✦ 今日洞察</div>
+  <p style="font-family:'Noto Serif SC',serif;font-size:17px;font-weight:600;color:#F2EAD8;line-height:2;letter-spacing:.01em;">${e(insight).replace(/\n/g,'<br>')}</p>
+</div>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${e(mainTitle)} ${mmdd}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Serif+Display&family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#FAF6EF;font-family:'Noto Sans SC',sans-serif;">
+<div style="width:750px;background:#FAF6EF;padding:0;">
+
+  <!-- HEADER -->
+  <div style="background:#1A1510;padding:32px 36px 24px;">
+    <div style="font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:rgba(184,134,11,0.6);margin-bottom:8px;">North America Daily · ${wdEn} ${wdZh}</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:52px;color:#FAF6EF;line-height:1.05;letter-spacing:-.02em;">${e(mainTitle)}</div>
+    <div style="font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:${primary};line-height:1;margin-top:8px;letter-spacing:-.01em;">${mmdd}</div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${[s1,s2,s3,s4].map(s=>`<span style="font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.1em;color:#FAF6EF;border:1px solid rgba(184,134,11,0.4);padding:3px 10px;border-radius:2px;">${e(s)}</span>`).join('')}
+    </div>
+  </div>
+
+  <!-- GOLD RULE -->
+  <div style="height:4px;background:linear-gradient(90deg,${primary},${primaryLight},${primary});"></div>
+
+  <!-- LEAD -->
+  <div style="padding:24px 36px 20px;border-bottom:1px solid rgba(184,134,11,0.18);">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:${primary};margin-bottom:8px;">今日导语 · ${dateStr}</div>
+    <div style="font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700;color:#1A1510;line-height:1.45;letter-spacing:-.01em;">${e(lead)}</div>
+    ${deck ? `<div style="font-size:16px;color:#6B5B45;line-height:1.75;margin-top:10px;font-weight:300;">${e(deck).replace(/\n/g,'<br>')}</div>` : ''}
+  </div>
+
+  <!-- SECTIONS -->
+  <div style="padding:20px 36px 0;">
+    ${sectionsHtml}
+  </div>
+
+  <!-- INSIGHT -->
+  ${insightBlock}
+
+  <!-- FOOTER -->
+  <div style="background:#1A1510;padding:18px 36px;display:flex;justify-content:space-between;align-items:center;margin-top:0;">
+    <span style="font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:${primary};">${e(mainTitle)}</span>
+    <span style="font-family:'DM Mono',monospace;font-size:12px;color:#6B5B45;letter-spacing:.06em;">${dateStr} · ${wdZh}</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+}
+
+function generateBrief() {
+  lastHtml = buildHtml();
+  const wrap = document.getElementById('preview-wrap');
+  wrap.innerHTML = '';
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'width:100%;height:100%;border:none;background:#FAF6EF;';
+  wrap.appendChild(iframe);
+  wrap.style.height = 'calc(100vh - 45px)';
+
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open(); doc.write(lastHtml); doc.close();
+
+  document.getElementById('preview-status').textContent = '✓ 已生成 · 可下载';
+}
+
+function downloadBrief() {
+  if (!lastHtml) { generateBrief(); }
+  const dateStr = v('f-date') || new Date().toISOString().split('T')[0];
+  const blob = new Blob([lastHtml], {type:'text/html;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `casino-brief-${dateStr}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Set today's date as default
+document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+
+// ── TOAST ──
+function showToast(msg, duration=3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ── PNG EXPORT ── renders mobile long-image (750px) via hidden iframe
+async function exportPng() {
+  const btn = document.getElementById('btn-png');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 渲染中…';
+  showToast('正在生成手机长图，字体加载中请稍候…', 15000);
+
+  // 1. Load html2canvas
+  if (!window.html2canvas) {
+    try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); }
+    catch(e) { showToast('❌ html2canvas 加载失败，请检查网络', 5000); btn.disabled=false; btn.textContent='🖼 出图'; return; }
+  }
+
+  // 2. Build mobile HTML
+  const mobileHtml = buildMobileHtml();
+
+  // 3. Hidden iframe at 750px
+  const renderIframe = document.createElement('iframe');
+  renderIframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:750px;height:1px;border:none;visibility:hidden;pointer-events:none;z-index:-1;';
+  document.body.appendChild(renderIframe);
+
+  try {
+    const iDoc = renderIframe.contentDocument || renderIframe.contentWindow.document;
+    iDoc.open();
+    // Disable animations for clean capture
+    const patched = mobileHtml.replace('</head>', `<style>*{animation:none!important;transition:none!important;opacity:1!important;transform:none!important}</style></head>`);
+    iDoc.write(patched);
+    iDoc.close();
+
+    // 4. Wait for load + fonts
+    await new Promise(resolve => {
+      const iWin = renderIframe.contentWindow;
+      if (iDoc.readyState === 'complete') { resolve(); return; }
+      iWin.addEventListener('load', resolve, {once:true});
+      setTimeout(resolve, 5000);
+    });
+    try { await renderIframe.contentDocument.fonts.ready; } catch(e) {}
+    await new Promise(r => setTimeout(r, 1400));
+
+    // 5. Set full height
+    const iBody = iDoc.body;
+    const fullH = Math.max(iBody.scrollHeight, iBody.offsetHeight, 600);
+    renderIframe.style.height = fullH + 'px';
+    await new Promise(r => setTimeout(r, 200));
+
+    // 6. Capture
+    const canvas = await html2canvas(iBody, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#FAF6EF',
+      width: 750,
+      height: fullH,
+      windowWidth: 750,
+      windowHeight: fullH,
+      scrollX: 0,
+      scrollY: 0,
+      logging: false,
+      imageTimeout: 12000,
+    });
+
+    // 7. Trim bottom whitespace
+    const ctx = canvas.getContext('2d');
+    const pw = canvas.width, ph = canvas.height;
+    let cropY = ph;
+    const bgR=26,bgG=21,bgB=16; // footer is dark #1A1510 — don't crop it, find the bottom of it
+    // Instead just trim pure #FAF6EF rows from the very bottom
+    const paperR=250,paperG=246,paperB=239,thr=10;
+    outer: for (let y = ph-1; y > ph*0.7; y--) {
+      const row = ctx.getImageData(0, y, pw, 1).data;
+      for (let x=0; x<pw*4; x+=4) {
+        if (Math.abs(row[x]-paperR)+Math.abs(row[x+1]-paperG)+Math.abs(row[x+2]-paperB) > thr) { cropY=y+4; break outer; }
+      }
+    }
+    cropY = Math.min(cropY, ph);
+
+    const cropped = document.createElement('canvas');
+    cropped.width = pw; cropped.height = cropY;
+    cropped.getContext('2d').drawImage(canvas, 0,0, pw,cropY, 0,0, pw,cropY);
+
+    // 8. Download
+    const dateStr = v('f-date') || new Date().toISOString().split('T')[0];
+    const dataUrl = cropped.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `brief-${dateStr}.png`;
+    a.click();
+    showToast(`✓ 长图已下载！${pw/2}×${Math.round(cropY/2)}px`, 4000);
+
+    // 9. Show in preview pane
+    const wrap = document.getElementById('preview-wrap');
+    wrap.innerHTML = `
+      <div style="padding:20px;background:#0F0D0A;min-height:100%;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:14px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.14em;color:#9C8C78;text-transform:uppercase;padding:6px 14px;border:1px solid rgba(184,134,11,.25);border-radius:2px;flex-shrink:0;">
+          手机长图 · ${pw/2} × ${Math.round(cropY/2)} px · @2x 高清
+        </div>
+        <img src="${dataUrl}" style="width:375px;border:1px solid rgba(184,134,11,.2);border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.6);" alt="mobile brief">
+        <a href="${dataUrl}" download="brief-${dateStr}.png"
+          style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1A1510;background:#B8860B;padding:10px 22px;border-radius:3px;text-decoration:none;flex-shrink:0;">
+          ↓ 再次下载
+        </a>
+      </div>`;
+    document.getElementById('preview-status').textContent = '✓ 手机长图已生成';
+
+  } catch(err) {
+    console.error('PNG export error:', err);
+    showToast('❌ 出图失败：' + err.message, 6000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🖼 出图';
+    if (renderIframe.parentNode) renderIframe.parentNode.removeChild(renderIframe);
+  }
+}
+// ── PUBLISH TO SUPABASE ──
+// 应用期望的数据格式：{ date, data: { meta, sections, insight }, updated_at }
+async function publishToSupabase() {
+  const btn = document.getElementById('btn-publish');
+  const sbUrl = document.getElementById('sb-url').value.trim().replace(/\/$/, '');
+  const sbKey = document.getElementById('sb-key').value.trim();
+
+  if (!sbUrl || !sbKey) {
+    showToast('⚠️ 请先填写 Supabase URL 和 Key', 4000);
+    document.getElementById('sb-url').focus();
+    return;
+  }
+
+  const dateStr = v('f-date') || new Date().toISOString().split('T')[0];
+  const s1 = v('s1-name') || '北美游戏';
+  const s2 = v('s2-name') || '北美时事';
+  const s3 = v('s3-name') || '北美美食';
+  const s4 = v('s4-name') || '北美文化';
+
+  // ✅ 构造应用真正需要的 data 结构（对应 React 应用的 oE() 函数格式）
+  const briefData = {
+    meta: {
+      title: v('f-title') || '北美日报',
+      date: dateStr,
+      lead: v('f-lead') || '',
+      deck: v('f-deck') || '',
+      sectionNames: [s1, s2, s3, s4],
+    },
+    sections: [
+      {
+        id: 'game', name: s1, icon: '🎰',
+        subtitle: '博彩内容商 · 新游上线 · 玩法 · 视觉 · 活动机制',
+        items: [
+          {brand:v('g1-brand'),body:v('g1-body'),url:v('g1-url'),src:v('g1-src'),image:imgData['g1-img']||''},
+          {brand:v('g2-brand'),body:v('g2-body'),url:v('g2-url'),src:v('g2-src'),image:imgData['g2-img']||''},
+          {brand:v('g3-brand'),body:v('g3-body'),url:v('g3-url'),src:v('g3-src'),image:imgData['g3-img']||''},
+        ].filter(it => it.brand || it.body),
+      },
+      {
+        id: 'news', name: s2, icon: '🗞',
+        subtitle: '美国时事 · 特朗普 · 国际大事 · 科技',
+        items: [
+          {brand:v('n1-brand'),body:v('n1-body'),url:v('n1-url'),src:v('n1-src'),image:imgData['n1-img']||''},
+          {brand:v('n2-brand'),body:v('n2-body'),url:v('n2-url'),src:v('n2-src'),image:imgData['n2-img']||''},
+          {brand:v('n3-brand'),body:v('n3-body'),url:v('n3-url'),src:v('n3-src'),image:imgData['n3-img']||''},
+        ].filter(it => it.brand || it.body),
+      },
+      {
+        id: 'food', name: s3, icon: '🍔',
+        subtitle: '北美餐饮趋势 · 地方美食 · 食物文化',
+        items: [
+          {brand:v('f1-brand'),body:v('f1-body'),url:v('f1-url'),src:v('f1-src'),image:imgData['f1-img']||''},
+          {brand:v('f2-brand'),body:v('f2-body'),url:v('f2-url'),src:v('f2-src'),image:imgData['f2-img']||''},
+          {brand:v('f3-brand'),body:v('f3-body'),url:v('f3-url'),src:v('f3-src'),image:imgData['f3-img']||''},
+        ].filter(it => it.brand || it.body),
+      },
+      {
+        id: 'culture', name: s4, icon: '🌆',
+        subtitle: '人文 · 建筑 · 城市 · 节日 · 生活方式',
+        items: [
+          {brand:v('c1-brand'),body:v('c1-body'),url:v('c1-url'),src:v('c1-src'),image:imgData['c1-img']||''},
+          {brand:v('c2-brand'),body:v('c2-body'),url:v('c2-url'),src:v('c2-src'),image:imgData['c2-img']||''},
+          {brand:v('c3-brand'),body:v('c3-body'),url:v('c3-url'),src:v('c3-src'),image:imgData['c3-img']||''},
+        ].filter(it => it.brand || it.body),
+      },
+    ],
+    insight: v('f-insight') || '',
+  };
+
+  // ✅ 最外层包一层 { date, data, updated_at }，这才是表的列结构
+  const payload = {
+    date: dateStr,
+    data: briefData,
+    updated_at: new Date().toISOString(),
+  };
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 发布中…';
+  showToast('正在发布到 Supabase…', 10000);
+
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/briefs`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey,
+        'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      let hint = '';
+      if (res.status === 401) hint = '\n→ Key 不正确，请检查是否完整复制';
+      if (res.status === 403) hint = '\n→ 没有写入权限，请重新执行建表 SQL';
+      if (res.status === 404) hint = '\n→ 找不到 briefs 表，请先执行建表 SQL';
+      throw new Error(`HTTP ${res.status}${hint}\n\n详情：${errText}`);
+    }
+
+    showToast(`✅ 发布成功！${dateStr} 已上线`, 5000);
+    document.getElementById('preview-status').textContent = '✅ 已发布';
+
+    const wrap = document.getElementById('preview-wrap');
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:rgba(45,106,79,0.15);border-bottom:1px solid rgba(82,183,136,0.3);padding:14px 20px;font-family:\'DM Mono\',monospace;font-size:11px;color:#52B788;letter-spacing:.06em;line-height:2;flex-shrink:0;';
+    banner.innerHTML = `✅ 发布成功 · <strong style="color:#72A882;">${dateStr}</strong><br>
+      <a href="https://bokeyouwu.github.io/NADailynews/" target="_blank"
+        style="color:#72A882;text-decoration:underline;font-size:10px;">
+        → 打开网站查看
+      </a>`;
+    if (wrap.firstChild) wrap.insertBefore(banner, wrap.firstChild);
+    else wrap.appendChild(banner);
+
+  } catch(err) {
+    console.error('Supabase publish error:', err);
+    showToast('❌ 发布失败', 4000);
+    setTimeout(() => alert('发布失败：\n\n' + err.message), 200);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚀 发布';
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+</script>
+</body>
+</html>
